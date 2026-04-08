@@ -9,7 +9,7 @@ from linebot.v3.messaging import (
     ReplyMessageRequest,
     TextMessage,
 )
-from linebot.v3.webhooks import MessageEvent, TextMessageContent, SourceUser, SourceGroup, SourceRoom
+from linebot.v3.webhooks import MessageEvent, TextMessageContent
 import config
 import database
 import line_handler
@@ -43,11 +43,11 @@ def webhook():
 def handle_text(event: MessageEvent):
     # 通知先を保存（グループ > ユーザーの優先順位）
     source = event.source
-    if isinstance(source, SourceGroup):
+    if hasattr(source, "group_id") and source.group_id:
         database.set_setting("notify_target", source.group_id)
-    elif isinstance(source, SourceRoom):
+    elif hasattr(source, "room_id") and source.room_id:
         database.set_setting("notify_target", source.room_id)
-    elif isinstance(source, SourceUser):
+    elif hasattr(source, "user_id") and source.user_id:
         if not database.get_setting("notify_target"):
             database.set_setting("notify_target", source.user_id)
 
