@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: inventory-line-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 1 --bind 0.0.0.0:$PORT --timeout 120
+    envVars:
+      - key: LINE_CHANNEL_SECRET
+        sync: false          # Render ダッシュボードで手動設定
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false          # Render ダッシュボードで手動設定
+      - key: DATABASE_PATH
+        value: /data/inventory.db
+      - key: ALERT_HOUR
+        value: "7"
+    disk:
+      name: inventory-db
+      mountPath: /data
+      sizeGB: 1
