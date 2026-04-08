@@ -57,6 +57,49 @@ def _format_inventory() -> str:
     return "\n".join(lines)
 
 
+def handle_postback(action: str) -> str:
+    """リッチメニューのポストバックを処理する。"""
+    if action == "low_stock_check":
+        items = database.get_low_stock()
+        if not items:
+            return "✅ 在庫不足の商品はありません。"
+        return format_low_stock_alert(items)
+
+    guides = {
+        "stock_decrease": (
+            "➖ 在庫を減らすには：\n"
+            "─────────────────\n"
+            "商品名 -数量 と送信してください\n\n"
+            "例:\n"
+            "  りんご -5\n"
+            "  牛乳 -2\n"
+            "─────────────────\n"
+            "マイナス記号(-)をお忘れなく！"
+        ),
+        "stock_increase": (
+            "➕ 在庫を増やすには：\n"
+            "─────────────────\n"
+            "商品名 +数量 と送信してください\n\n"
+            "例:\n"
+            "  りんご +20\n"
+            "  牛乳 +6\n"
+            "─────────────────\n"
+            "＋記号は省略も可（例: りんご 20）"
+        ),
+        "set_threshold": (
+            "🔔 閾値を設定するには：\n"
+            "─────────────────\n"
+            "商品名 閾値 数字 と送信してください\n\n"
+            "例:\n"
+            "  りんご 閾値 5\n"
+            "  牛乳 閾値 10\n"
+            "─────────────────\n"
+            "閾値以下になると毎朝7時にアラートが届きます"
+        ),
+    }
+    return guides.get(action, "不明な操作です。メニューからもう一度お試しください。")
+
+
 def format_low_stock_alert(items: list[dict]) -> str:
     lines = ["⚠️ 在庫不足アラート", "─────────────────"]
     for item in items:

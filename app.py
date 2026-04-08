@@ -9,7 +9,7 @@ from linebot.v3.messaging import (
     ReplyMessageRequest,
     TextMessage,
 )
-from linebot.v3.webhooks import MessageEvent, TextMessageContent
+from linebot.v3.webhooks import MessageEvent, TextMessageContent, PostbackEvent
 import config
 import database
 import line_handler
@@ -52,6 +52,23 @@ def handle_text(event: MessageEvent):
             database.set_setting("notify_target", source.user_id)
 
     reply_text = line_handler.handle_message(event.message.text, source)
+
+    configuration = Configuration(access_token=config.LINE_CHANNEL_ACCESS_TOKEN)
+    with ApiClient(configuration) as api_client:
+        api = MessagingApi(api_client)
+        api.reply_message(
+            ReplyMessageRequest(
+                reply_token=event.reply_token,
+                messages=[TextMessage(text=reply_text)],
+            )
+        )
+
+
+@handler.add(PostbackEvent)
+def handle_postback(event: PostbackEvent):
+    data = event.postback.data
+    action = dict(p.split("=", 1) for p in data.split("&") if "=" in p).get("action", "")
+    reply_text = line_handler.handle_postback(action)
 
     configuration = Configuration(access_token=config.LINE_CHANNEL_ACCESS_TOKEN)
     with ApiClient(configuration) as api_client:

@@ -1,5 +1,6 @@
 .env
 *.db
+assets/richmenu.png
 __pycache__/
 *.pyc
 .venv/
