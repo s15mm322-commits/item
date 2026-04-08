@@ -1,5 +1,6 @@
-import sqlite3
 import unicodedata
+import psycopg2
+import psycopg2.extras
 import config
 
 
@@ -9,86 +10,94 @@ def normalize(text: str) -> str:
 
 
 def get_conn():
-    conn = sqlite3.connect(config.DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg2.connect(config.DATABASE_URL)
     return conn
 
 
 def init_db():
     with get_conn() as conn:
-        conn.executescript("""
-            CREATE TABLE IF NOT EXISTS inventory (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                name       TEXT    NOT NULL UNIQUE,
-                quantity   INTEGER NOT NULL DEFAULT 0,
-                threshold  INTEGER NOT NULL DEFAULT 5,
-                updated_at TEXT    DEFAULT (datetime('now'))
-            );
-            CREATE TABLE IF NOT EXISTS settings (
-                key   TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            );
-        """)
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS inventory (
+                    id         SERIAL PRIMARY KEY,
+                    name       TEXT    NOT NULL UNIQUE,
+                    quantity   INTEGER NOT NULL DEFAULT 0,
+                    threshold  INTEGER NOT NULL DEFAULT 5,
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS settings (
+                    key   TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
+            """)
 
 
 def update_quantity(name: str, delta: int) -> int:
     """在庫数を delta だけ増減する。商品が存在しない場合は新規作成。
-    新規の場合は delta が初期在庫数になる。負になる場合もそのまま保存する。
     更新後の在庫数を返す。"""
     name = normalize(name)
     with get_conn() as conn:
-        conn.execute(
-            """
-            INSERT INTO inventory (name, quantity)
-            VALUES (?, ?)
-            ON CONFLICT(name) DO UPDATE SET
-                quantity   = quantity + excluded.quantity,
-                updated_at = datetime('now')
-            """,
-            (name, delta),
-        )
-        row = conn.execute(
-            "SELECT quantity FROM inventory WHERE name = ?", (name,)
-        ).fetchone()
-    return row["quantity"]
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO inventory (name, quantity)
+                VALUES (%s, %s)
+                ON CONFLICT (name) DO UPDATE SET
+                    quantity   = inventory.quantity + EXCLUDED.quantity,
+                    updated_at = NOW()
+                RETURNING quantity
+                """,
+                (name, delta),
+            )
+            row = cur.fetchone()
+    return row[0]
 
 
 def set_threshold(name: str, threshold: int):
     name = normalize(name)
     with get_conn() as conn:
-        conn.execute(
-            "UPDATE inventory SET threshold = ? WHERE name = ?",
-            (threshold, name),
-        )
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE inventory SET threshold = %s WHERE name = %s",
+                (threshold, name),
+            )
 
 
 def get_all_inventory() -> list[dict]:
     with get_conn() as conn:
-        rows = conn.execute(
-            "SELECT name, quantity, threshold FROM inventory ORDER BY name"
-        ).fetchall()
-    return [dict(r) for r in rows]
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT name, quantity, threshold FROM inventory ORDER BY name"
+            )
+            return [dict(r) for r in cur.fetchall()]
 
 
 def get_low_stock() -> list[dict]:
     with get_conn() as conn:
-        rows = conn.execute(
-            "SELECT name, quantity, threshold FROM inventory WHERE quantity <= threshold ORDER BY quantity"
-        ).fetchall()
-    return [dict(r) for r in rows]
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT name, quantity, threshold FROM inventory WHERE quantity <= threshold ORDER BY quantity"
+            )
+            return [dict(r) for r in cur.fetchall()]
 
 
 def get_setting(key: str) -> str | None:
     with get_conn() as conn:
-        row = conn.execute(
-            "SELECT value FROM settings WHERE key = ?", (key,)
-        ).fetchone()
-    return row["value"] if row else None
+        with conn.cursor() as cur:
+            cur.execute("SELECT value FROM settings WHERE key = %s", (key,))
+            row = cur.fetchone()
+    return row[0] if row else None
 
 
 def set_setting(key: str, value: str):
     with get_conn() as conn:
-        conn.execute(
-            "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            (key, value),
-        )
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO settings (key, value) VALUES (%s, %s)
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+                """,
+                (key, value),
+            )

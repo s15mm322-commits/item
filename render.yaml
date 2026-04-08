@@ -9,11 +9,14 @@ services:
         sync: false          # Render ダッシュボードで手動設定
       - key: LINE_CHANNEL_ACCESS_TOKEN
         sync: false          # Render ダッシュボードで手動設定
-      - key: DATABASE_PATH
-        value: /data/inventory.db
+      - key: DATABASE_URL
+        fromDatabase:
+          name: inventory-db
+          property: connectionString
       - key: ALERT_HOUR
         value: "7"
-    disk:
-      name: inventory-db
-      mountPath: /data
-      sizeGB: 1
+
+databases:
+  - name: inventory-db
+    databaseName: inventory
+    user: inventory_user
