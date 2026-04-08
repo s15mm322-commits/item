@@ -126,7 +126,7 @@ def upload_image(rich_menu_id: str, image_path: str):
 
 def set_default(rich_menu_id: str):
     r = requests.post(
-        f"{BASE}/richmenu/default/{rich_menu_id}",
+        f"{BASE}/user/all/richmenu/{rich_menu_id}",
         headers=HEADERS_JSON,
     )
     if not r.ok:

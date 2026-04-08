@@ -132,7 +132,7 @@ def setup_richmenu():
         return jsonify({"step": "upload_image", "status": r2.status_code, "error": r2.text, "richMenuId": rid}), 500
 
     # デフォルト設定
-    r3 = http_requests.post(f"{base}/richmenu/default/{rid}", headers=headers_json)
+    r3 = http_requests.post(f"{base}/user/all/richmenu/{rid}", headers=headers_json)
     if not r3.ok:
         return jsonify({"step": "set_default", "status": r3.status_code, "error": r3.text, "richMenuId": rid}), 500
 
