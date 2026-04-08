@@ -79,7 +79,7 @@ def setup_richmenu():
         data=json.dumps(menu_body, ensure_ascii=False).encode("utf-8"),
     )
     if not r.ok:
-        return jsonify({"error": r.text}), 500
+        return jsonify({"step": "create_menu", "status": r.status_code, "error": r.text}), 500
     rid = r.json()["richMenuId"]
 
     # 画像を生成してアップロード
@@ -129,12 +129,12 @@ def setup_richmenu():
         data=buf.read(),
     )
     if not r2.ok:
-        return jsonify({"error": r2.text}), 500
+        return jsonify({"step": "upload_image", "status": r2.status_code, "error": r2.text, "richMenuId": rid}), 500
 
     # デフォルト設定
     r3 = http_requests.post(f"{base}/richmenu/default/{rid}", headers=headers_json)
     if not r3.ok:
-        return jsonify({"error": r3.text}), 500
+        return jsonify({"step": "set_default", "status": r3.status_code, "error": r3.text, "richMenuId": rid}), 500
 
     logger.info(f"リッチメニュー登録完了: {rid}")
     return jsonify({"status": "ok", "richMenuId": rid})
