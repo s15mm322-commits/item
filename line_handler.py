@@ -113,6 +113,14 @@ def handle_postback(data: str, user_id: str) -> list[dict]:
         database.clear_session(user_id)
         return [_build_manual_flex()]
 
+    if action == "start_restock":
+        product = params.get("product", "")
+        if not product:
+            return [_build_text("商品が指定されていません。")]
+        # カテゴリは補充フローでは不要なのでNoneのままセッションを設定
+        database.set_session(user_id, FLOW_INCREASE, STEP_QUANTITY, product=product)
+        return [_build_quantity_select(product, FLOW_INCREASE)]
+
     # ── 在庫設定サブメニュー ──
     if action == "settings_add":
         database.set_session(user_id, FLOW_ADD_PRODUCT, STEP_CATEGORY)
@@ -932,41 +940,64 @@ def _build_low_stock_flex() -> dict:
     if not items:
         return _build_text("✅ 在庫不足の商品はありません。")
 
-    body_contents = [
-        {
-            "type": "text",
-            "text": "⚠️ 在庫不足一覧",
-            "weight": "bold",
-            "size": "xl",
-            "color": "#DC3545",
-        },
-        {"type": "separator", "margin": "md"},
-    ]
+    bubbles = []
     for item in items:
-        body_contents.append(
-            _flex_kv(item["name"], f"{item['quantity']}個（閾値: {item['threshold']}）")
-        )
-
-    body_contents.append({"type": "separator", "margin": "md"})
-    body_contents.append({
-        "type": "text",
-        "text": "補充をご確認ください。",
-        "size": "sm",
-        "color": "#999999",
-        "margin": "md",
-    })
-
-    return {
-        "type": "flex",
-        "altText": "⚠️ 在庫不足一覧",
-        "contents": {
+        bubbles.append({
             "type": "bubble",
+            "header": {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": "#DC3545",
+                "paddingAll": "md",
+                "contents": [{
+                    "type": "text",
+                    "text": "⚠️ 在庫不足",
+                    "color": "#FFFFFF",
+                    "weight": "bold",
+                    "size": "sm",
+                }],
+            },
             "body": {
                 "type": "box",
                 "layout": "vertical",
-                "spacing": "sm",
-                "contents": body_contents,
+                "spacing": "md",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": item["name"],
+                        "weight": "bold",
+                        "size": "lg",
+                        "wrap": True,
+                        "color": "#333333",
+                    },
+                    {"type": "separator", "margin": "md"},
+                    _flex_kv("現在庫", f"{item['quantity']} 個"),
+                    _flex_kv("閾値",   f"{item['threshold']} 個"),
+                ],
             },
+            "footer": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [{
+                    "type": "button",
+                    "style": "primary",
+                    "color": "#1A6FBF",
+                    "action": {
+                        "type": "postback",
+                        "label": "✅ 補充完了",
+                        "data": f"action=start_restock&product={item['name']}",
+                        "displayText": f"{item['name']}を補充",
+                    },
+                }],
+            },
+        })
+
+    return {
+        "type": "flex",
+        "altText": f"⚠️ 在庫不足 {len(items)}件",
+        "contents": {
+            "type": "carousel",
+            "contents": bubbles,
         },
     }
 
