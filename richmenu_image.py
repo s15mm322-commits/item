@@ -25,13 +25,13 @@ COLORS = {
 
 # ---- ボタン定義 ----
 BUTTONS = [
-    # (行, 列, アイコン, ラベル, サブラベル)
-    (0, 0, "📦", "在庫確認",     "全商品の在庫を表示"),
-    (0, 1, "➖", "在庫を減らす", "例: りんご -5"),
-    (0, 2, "➕", "在庫を増やす", "例: りんご +10"),
-    (1, 0, "⚠️", "在庫不足確認", "閾値以下の商品を表示"),
-    (1, 1, "🔔", "閾値を設定",   "例: りんご 閾値 5"),
-    (1, 2, "❓", "ヘルプ",       "操作方法を表示"),
+    # (行, 列, ラベル, サブラベル)
+    (0, 0, "在庫を増やす", "入庫フロー開始"),
+    (0, 1, "在庫を減らす", "出庫フロー開始"),
+    (0, 2, "在庫確認",     "全商品の在庫を表示"),
+    (1, 0, "在庫不足確認", "閾値以下の商品を表示"),
+    (1, 1, "在庫通知設定", "通知閾値を変更"),
+    (1, 2, "マニュアル",   "操作方法を表示"),
 ]
 
 
@@ -60,11 +60,10 @@ def generate(output_path: str = "assets/richmenu.png") -> str:
     img = Image.new("RGB", (WIDTH, HEIGHT), color=COLORS["bg_top"])
     draw = ImageDraw.Draw(img)
 
-    font_icon  = _load_font(100)
-    font_main  = _load_font(72)
-    font_sub   = _load_font(44)
+    font_main  = _load_font(80)
+    font_sub   = _load_font(48)
 
-    for row, col, icon, label, sublabel in BUTTONS:
+    for row, col, label, sublabel in BUTTONS:
         # セルの左上座標
         x = sum(COL_WIDTHS[:col])
         y = row * CELL_H
@@ -81,16 +80,12 @@ def generate(output_path: str = "assets/richmenu.png") -> str:
 
         cx = x + w // 2
 
-        # アイコン
-        draw.text((cx, y + h * 0.22), icon,
-                  font=font_icon, fill=COLORS["text"], anchor="mm")
-
-        # メインラベル
-        draw.text((cx, y + h * 0.55), label,
+        # メインラベル（中央）
+        draw.text((cx, y + h * 0.42), label,
                   font=font_main, fill=COLORS["text"], anchor="mm")
 
         # サブラベル
-        draw.text((cx, y + h * 0.78), sublabel,
+        draw.text((cx, y + h * 0.68), sublabel,
                   font=font_sub, fill=COLORS["subtext"], anchor="mm")
 
     img.save(output_path, "PNG")
