@@ -76,13 +76,13 @@ RICH_MENU_BODY = {
                 "displayText": "⚠️ 在庫不足確認",
             },
         },
-        # 下段中: 在庫通知設定
+        # 下段中: 在庫設定
         {
             "bounds": {"x": 833, "y": 421, "width": 834, "height": 422},
             "action": {
                 "type": "postback",
-                "data": "action=start_threshold",
-                "displayText": "🔔 在庫通知設定",
+                "data": "action=start_settings",
+                "displayText": "⚙️ 在庫設定",
             },
         },
         # 下段右: マニュアル

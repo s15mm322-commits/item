@@ -2,6 +2,7 @@
 LINE メッセージ / ポストバック処理。
 クイックリプライとフレックスメッセージを使った対話的な在庫管理フローを提供する。
 """
+import re
 import database
 
 # ─────────────────────────────────────────────
@@ -10,12 +11,21 @@ import database
 FLOW_INCREASE = "increase"
 FLOW_DECREASE = "decrease"
 FLOW_THRESHOLD = "threshold"
+FLOW_ADD_PRODUCT = "add_product"
+FLOW_DELETE_PRODUCT = "delete_product"
+FLOW_RENAME_PRODUCT = "rename_product"
 
 STEP_CATEGORY = "category"
 STEP_PRODUCT  = "product"
 STEP_QUANTITY  = "quantity"
 STEP_DIRECT_INPUT = "direct_input"
 STEP_CONFIRM   = "confirm"
+STEP_SETTINGS_MENU = "settings_menu"
+STEP_INPUT_NAME = "input_name"
+STEP_INPUT_NEW_NAME = "input_new_name"
+
+# テキスト入力での在庫増減パターン: "商品名 数量" (例: りんご -5, りんご +10, りんご 3)
+QUANTITY_RE = re.compile(r"^(.+?)\s+([\+\-]?\d+)$")
 
 
 # ─────────────────────────────────────────────
@@ -24,8 +34,6 @@ STEP_CONFIRM   = "confirm"
 def handle_message(text: str, user_id: str) -> list[dict]:
     """
     テキストメッセージを処理し、返信メッセージオブジェクトのリストを返す。
-    各dictは {"type": "text", "text": ..., "quickReply": ...}
-    または {"type": "flex", ...} 形式。
     """
     text = text.strip()
     session = database.get_session(user_id)
@@ -34,8 +42,15 @@ def handle_message(text: str, user_id: str) -> list[dict]:
     if session and session["step"] == STEP_DIRECT_INPUT:
         return _handle_direct_input(text, user_id, session)
 
-    # ── セッション中のテキスト入力（クイックリプライの代わりにテキスト送信した場合） ──
-    # セッション中でもリッチメニューからのメッセージは優先処理
+    # ── 商品名入力モード（追加/リネーム） ──
+    if session and session["step"] == STEP_INPUT_NAME:
+        return _handle_input_name(text, user_id, session)
+
+    # ── 新名称入力モード（リネーム） ──
+    if session and session["step"] == STEP_INPUT_NEW_NAME:
+        return _handle_input_new_name(text, user_id, session)
+
+    # ── リッチメニューからのメッセージは常に優先 ──
     if text == "在庫確認":
         database.clear_session(user_id)
         return [_build_inventory_flex()]
@@ -43,11 +58,24 @@ def handle_message(text: str, user_id: str) -> list[dict]:
         database.clear_session(user_id)
         return [_build_manual_flex()]
 
-    # ── セッション外のフリーテキスト ──
-    if not session:
-        return [_build_text("メニューから操作を選択してください。")]
+    # ── テキストメッセージでの在庫増減 ──
+    m = QUANTITY_RE.match(text)
+    if m:
+        name, delta = m.group(1).strip(), int(m.group(2))
+        # 商品マスタに存在する場合のみ処理
+        item = database.get_item(name)
+        if item:
+            database.clear_session(user_id)
+            new_qty = database.update_quantity(name, delta)
+            return [_build_completion_flex(name, delta, new_qty)]
+        else:
+            return [_build_text(
+                f"「{name}」は商品マスタに登録されていません。\n"
+                "在庫設定メニューから商品を追加してください。"
+            )]
 
-    return [_build_text("メニューまたはクイックリプライから操作を選択してください。")]
+    # ── セッション外のフリーテキスト ──
+    return [_build_text("メニューから操作を選択してください。\nテキストで在庫増減する場合：商品名 数量（例: マスク -3）")]
 
 
 # ─────────────────────────────────────────────
@@ -77,13 +105,30 @@ def handle_postback(data: str, user_id: str) -> list[dict]:
         database.clear_session(user_id)
         return [_build_low_stock_flex()]
 
-    if action == "start_threshold":
-        database.set_session(user_id, FLOW_THRESHOLD, STEP_CATEGORY)
-        return [_build_category_select("🔔 通知設定：カテゴリを選んでください")]
+    if action == "start_settings":
+        database.set_session(user_id, "settings", STEP_SETTINGS_MENU)
+        return [_build_settings_menu()]
 
     if action == "show_manual":
         database.clear_session(user_id)
         return [_build_manual_flex()]
+
+    # ── 在庫設定サブメニュー ──
+    if action == "settings_add":
+        database.set_session(user_id, FLOW_ADD_PRODUCT, STEP_CATEGORY)
+        return [_build_category_select("➕ 追加先のカテゴリを選んでください")]
+
+    if action == "settings_delete":
+        database.set_session(user_id, FLOW_DELETE_PRODUCT, STEP_CATEGORY)
+        return [_build_category_select("🗑️ 削除する商品のカテゴリを選んでください")]
+
+    if action == "settings_rename":
+        database.set_session(user_id, FLOW_RENAME_PRODUCT, STEP_CATEGORY)
+        return [_build_category_select("✏️ 名称変更する商品のカテゴリを選んでください")]
+
+    if action == "settings_threshold":
+        database.set_session(user_id, FLOW_THRESHOLD, STEP_CATEGORY)
+        return [_build_category_select("🔔 閾値変更する商品のカテゴリを選んでください")]
 
     # ── フロー中のアクション ──
     if action == "select_category":
@@ -101,6 +146,9 @@ def handle_postback(data: str, user_id: str) -> list[dict]:
     if action == "confirm":
         return _handle_confirm(user_id)
 
+    if action == "confirm_delete":
+        return _handle_confirm_delete(user_id)
+
     if action == "cancel" or action == "back_to_menu":
         database.clear_session(user_id)
         return [_build_text("キャンセルしました。メニューから操作を選んでください。")]
@@ -114,7 +162,65 @@ def handle_postback(data: str, user_id: str) -> list[dict]:
     if action == "back_to_quantity":
         return _handle_back_to_quantity(user_id)
 
+    if action == "back_to_settings":
+        database.set_session(user_id, "settings", STEP_SETTINGS_MENU)
+        return [_build_settings_menu()]
+
     return [_build_text("不明な操作です。メニューからもう一度お試しください。")]
+
+
+# ─────────────────────────────────────────────
+#  在庫設定メニュー
+# ─────────────────────────────────────────────
+def _build_settings_menu() -> dict:
+    items = [
+        {
+            "type": "action",
+            "action": {
+                "type": "postback",
+                "label": "➕ 在庫追加",
+                "data": "action=settings_add",
+                "displayText": "➕ 在庫追加",
+            },
+        },
+        {
+            "type": "action",
+            "action": {
+                "type": "postback",
+                "label": "🗑️ 在庫削除",
+                "data": "action=settings_delete",
+                "displayText": "🗑️ 在庫削除",
+            },
+        },
+        {
+            "type": "action",
+            "action": {
+                "type": "postback",
+                "label": "✏️ 在庫名称変更",
+                "data": "action=settings_rename",
+                "displayText": "✏️ 在庫名称変更",
+            },
+        },
+        {
+            "type": "action",
+            "action": {
+                "type": "postback",
+                "label": "🔔 閾値変更",
+                "data": "action=settings_threshold",
+                "displayText": "🔔 閾値変更",
+            },
+        },
+        {
+            "type": "action",
+            "action": {
+                "type": "postback",
+                "label": "← キャンセル",
+                "data": "action=cancel",
+                "displayText": "キャンセル",
+            },
+        },
+    ]
+    return _build_text("⚙️ 在庫設定：操作を選んでください", {"items": items})
 
 
 # ─────────────────────────────────────────────
@@ -126,18 +232,27 @@ def _handle_select_category(params: dict, user_id: str) -> list[dict]:
     if not session:
         return [_build_text("セッションが切れました。メニューからやり直してください。")]
 
+    flow = session["flow"]
+
+    # 在庫追加フロー → 商品名入力へ
+    if flow == FLOW_ADD_PRODUCT:
+        database.set_session(user_id, flow, STEP_INPUT_NAME, category=category)
+        return [_build_text(f"➕ {category} > 追加する商品名を入力してください")]
+
     database.set_session(
-        user_id, session["flow"], STEP_PRODUCT,
+        user_id, flow, STEP_PRODUCT,
         category=category,
     )
 
-    flow = session["flow"]
-    if flow == FLOW_INCREASE:
-        label = f"➕ 入庫 > {category}：商品を選んでください"
-    elif flow == FLOW_DECREASE:
-        label = f"➖ 出庫 > {category}：商品を選んでください"
-    else:
-        label = f"🔔 通知設定 > {category}：商品を選んでください"
+    flow_labels = {
+        FLOW_INCREASE: "➕ 入庫",
+        FLOW_DECREASE: "➖ 出庫",
+        FLOW_THRESHOLD: "🔔 閾値変更",
+        FLOW_DELETE_PRODUCT: "🗑️ 削除",
+        FLOW_RENAME_PRODUCT: "✏️ 名称変更",
+    }
+    prefix = flow_labels.get(flow, "")
+    label = f"{prefix} > {category}：商品を選んでください"
 
     return [_build_product_select(category, label)]
 
@@ -153,6 +268,22 @@ def _handle_select_product(params: dict, user_id: str) -> list[dict]:
 
     flow = session["flow"]
 
+    # 削除フロー → 確認画面
+    if flow == FLOW_DELETE_PRODUCT:
+        database.set_session(
+            user_id, flow, STEP_CONFIRM,
+            category=session["category"], product=product,
+        )
+        return [_build_delete_confirm_flex(product)]
+
+    # 名称変更フロー → 新名称入力
+    if flow == FLOW_RENAME_PRODUCT:
+        database.set_session(
+            user_id, flow, STEP_INPUT_NEW_NAME,
+            category=session["category"], product=product,
+        )
+        return [_build_text(f"✏️ 「{product}」の新しい名称を入力してください")]
+
     # 閾値設定フローの場合：閾値選択に進む
     if flow == FLOW_THRESHOLD:
         database.set_session(
@@ -167,6 +298,47 @@ def _handle_select_product(params: dict, user_id: str) -> list[dict]:
         category=session["category"], product=product,
     )
     return [_build_quantity_select(product, flow)]
+
+
+# ─────────────────────────────────────────────
+#  フロー処理: 商品名入力（追加）
+# ─────────────────────────────────────────────
+def _handle_input_name(text: str, user_id: str, session: dict) -> list[dict]:
+    flow = session["flow"]
+
+    if flow == FLOW_ADD_PRODUCT:
+        name = text.strip()
+        if not name:
+            return [_build_text("商品名を入力してください。")]
+
+        category = session["category"]
+        success = database.add_product(name, category)
+        database.clear_session(user_id)
+
+        if success:
+            return [_build_text(f"✅ 「{name}」を {category} カテゴリに追加しました。\n初期数量: {database.DEFAULT_QUANTITY}個 / 閾値: {database.DEFAULT_THRESHOLD}")]
+        else:
+            return [_build_text(f"⚠️ 「{name}」は既に登録されています。")]
+
+    return [_build_text("セッションが切れました。メニューからやり直してください。")]
+
+
+# ─────────────────────────────────────────────
+#  フロー処理: 新名称入力（リネーム）
+# ─────────────────────────────────────────────
+def _handle_input_new_name(text: str, user_id: str, session: dict) -> list[dict]:
+    new_name = text.strip()
+    if not new_name:
+        return [_build_text("新しい商品名を入力してください。")]
+
+    old_name = session["product"]
+    success = database.rename_product(old_name, new_name)
+    database.clear_session(user_id)
+
+    if success:
+        return [_build_text(f"✅ 「{old_name}」→「{new_name}」に名称を変更しました。")]
+    else:
+        return [_build_text(f"⚠️ 名称変更に失敗しました。「{new_name}」が既に存在するか、元の商品が見つかりません。")]
 
 
 # ─────────────────────────────────────────────
@@ -249,6 +421,21 @@ def _handle_confirm(user_id: str) -> list[dict]:
     return [_build_completion_flex(product, qty, new_qty)]
 
 
+def _handle_confirm_delete(user_id: str) -> list[dict]:
+    session = database.get_session(user_id)
+    if not session or session["flow"] != FLOW_DELETE_PRODUCT:
+        return [_build_text("セッションが切れました。メニューからやり直してください。")]
+
+    product = session["product"]
+    success = database.delete_product(product)
+    database.clear_session(user_id)
+
+    if success:
+        return [_build_text(f"✅ 「{product}」を削除しました。")]
+    else:
+        return [_build_text(f"⚠️ 「{product}」の削除に失敗しました。")]
+
+
 # ─────────────────────────────────────────────
 #  フロー処理: 戻る
 # ─────────────────────────────────────────────
@@ -258,14 +445,23 @@ def _handle_back_to_category(user_id: str) -> list[dict]:
         return [_build_text("セッションが切れました。メニューからやり直してください。")]
 
     flow = session["flow"]
-    database.set_session(user_id, flow, STEP_CATEGORY)
 
+    # 在庫設定系フローは設定メニューに戻る
+    if flow in (FLOW_ADD_PRODUCT, FLOW_DELETE_PRODUCT, FLOW_RENAME_PRODUCT, FLOW_THRESHOLD):
+        database.set_session(user_id, flow, STEP_CATEGORY)
+        flow_labels = {
+            FLOW_ADD_PRODUCT: "➕ 追加先のカテゴリを選んでください",
+            FLOW_DELETE_PRODUCT: "🗑️ 削除する商品のカテゴリを選んでください",
+            FLOW_RENAME_PRODUCT: "✏️ 名称変更する商品のカテゴリを選んでください",
+            FLOW_THRESHOLD: "🔔 閾値変更する商品のカテゴリを選んでください",
+        }
+        return [_build_category_select(flow_labels.get(flow, "カテゴリを選んでください"))]
+
+    database.set_session(user_id, flow, STEP_CATEGORY)
     if flow == FLOW_INCREASE:
         label = "➕ 入庫：カテゴリを選んでください"
-    elif flow == FLOW_DECREASE:
-        label = "➖ 出庫：カテゴリを選んでください"
     else:
-        label = "🔔 通知設定：カテゴリを選んでください"
+        label = "➖ 出庫：カテゴリを選んでください"
 
     return [_build_category_select(label)]
 
@@ -279,12 +475,15 @@ def _handle_back_to_product(user_id: str) -> list[dict]:
     category = session["category"]
     database.set_session(user_id, flow, STEP_PRODUCT, category=category)
 
-    if flow == FLOW_INCREASE:
-        label = f"➕ 入庫 > {category}：商品を選んでください"
-    elif flow == FLOW_DECREASE:
-        label = f"➖ 出庫 > {category}：商品を選んでください"
-    else:
-        label = f"🔔 通知設定 > {category}：商品を選んでください"
+    flow_labels = {
+        FLOW_INCREASE: "➕ 入庫",
+        FLOW_DECREASE: "➖ 出庫",
+        FLOW_THRESHOLD: "🔔 閾値変更",
+        FLOW_DELETE_PRODUCT: "🗑️ 削除",
+        FLOW_RENAME_PRODUCT: "✏️ 名称変更",
+    }
+    prefix = flow_labels.get(flow, "")
+    label = f"{prefix} > {category}：商品を選んでください"
 
     return [_build_product_select(category, label)]
 
@@ -324,7 +523,6 @@ def _build_category_select(label: str) -> dict:
         icon = database.CATEGORY_ICONS.get(cat, "📦")
         items.append({
             "type": "action",
-            "imageUrl": None,
             "action": {
                 "type": "postback",
                 "label": f"{icon} {cat}",
@@ -487,10 +685,7 @@ def _build_confirm_flex(user_id: str, session: dict, qty: int) -> dict:
                 "contents": [
                     _flex_kv("商品名", product),
                     _flex_kv("数量", f"{sign}{qty}"),
-                    {
-                        "type": "separator",
-                        "margin": "md",
-                    },
+                    {"type": "separator", "margin": "md"},
                     _flex_kv("変更前", f"{current_qty} 個"),
                     _flex_kv("変更後", f"{new_qty} 個"),
                 ],
@@ -509,6 +704,78 @@ def _build_confirm_flex(user_id: str, session: dict, qty: int) -> dict:
                             "label": "✅ 確定",
                             "data": "action=confirm",
                             "displayText": "確定",
+                        },
+                    },
+                    {
+                        "type": "button",
+                        "style": "secondary",
+                        "action": {
+                            "type": "postback",
+                            "label": "❌ キャンセル",
+                            "data": "action=cancel",
+                            "displayText": "キャンセル",
+                        },
+                    },
+                ],
+            },
+        },
+    }
+
+
+def _build_delete_confirm_flex(product: str) -> dict:
+    item = database.get_item(product)
+    qty = item["quantity"] if item else 0
+
+    return {
+        "type": "flex",
+        "altText": f"削除確認: {product}",
+        "contents": {
+            "type": "bubble",
+            "header": {
+                "type": "box",
+                "layout": "vertical",
+                "backgroundColor": "#DC3545",
+                "contents": [{
+                    "type": "text",
+                    "text": "🗑️ 削除確認",
+                    "color": "#FFFFFF",
+                    "weight": "bold",
+                    "size": "lg",
+                }],
+            },
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "spacing": "md",
+                "contents": [
+                    _flex_kv("商品名", product),
+                    _flex_kv("現在庫数", f"{qty} 個"),
+                    {"type": "separator", "margin": "md"},
+                    {
+                        "type": "text",
+                        "text": "この商品を削除しますか？",
+                        "size": "sm",
+                        "color": "#DC3545",
+                        "weight": "bold",
+                        "margin": "md",
+                        "wrap": True,
+                    },
+                ],
+            },
+            "footer": {
+                "type": "box",
+                "layout": "horizontal",
+                "spacing": "md",
+                "contents": [
+                    {
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#DC3545",
+                        "action": {
+                            "type": "postback",
+                            "label": "🗑️ 削除する",
+                            "data": "action=confirm_delete",
+                            "displayText": "削除する",
                         },
                     },
                     {
@@ -736,8 +1003,10 @@ def _build_manual_flex() -> dict:
                                     "メニューから「在庫確認」をタップ\n→ 全商品の在庫をカテゴリ別に表示"),
                     _manual_section("⚠️ 在庫不足確認",
                                     "メニューから「在庫不足確認」をタップ\n→ 閾値以下の商品を一覧表示"),
-                    _manual_section("🔔 在庫通知設定",
-                                    "メニューから「在庫通知設定」をタップ\n→ 商品ごとの通知閾値を変更"),
+                    _manual_section("⚙️ 在庫設定",
+                                    "商品の追加・削除・名称変更・閾値変更"),
+                    _manual_section("📝 テキスト入力",
+                                    "「商品名 数量」で直接増減\n例: マスク -3、ティッシュ +5"),
                     _manual_section("⏰ 毎朝7時通知",
                                     "閾値以下の在庫がある場合\n自動でアラートが届きます"),
                 ],
