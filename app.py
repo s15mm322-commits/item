@@ -12,6 +12,10 @@ from linebot.v3.messaging import (
     TextMessage,
     FlexMessage,
     FlexContainer,
+    QuickReply,
+    QuickReplyItem,
+    PostbackAction,
+    MessageAction,
 )
 from linebot.v3.webhooks import MessageEvent, TextMessageContent, PostbackEvent
 import config
@@ -44,6 +48,29 @@ def webhook():
 
 
 # ─────────── メッセージ → LINE SDK メッセージオブジェクト変換 ───────────
+def _build_quick_reply(qr_dict: dict) -> QuickReply:
+    """dict形式のクイックリプライをSDKオブジェクトに変換する。"""
+    items = []
+    for item in qr_dict.get("items", []):
+        action_dict = item.get("action", {})
+        action_type = action_dict.get("type", "")
+        if action_type == "postback":
+            action = PostbackAction(
+                label=action_dict.get("label", ""),
+                data=action_dict.get("data", ""),
+                display_text=action_dict.get("displayText"),
+            )
+        elif action_type == "message":
+            action = MessageAction(
+                label=action_dict.get("label", ""),
+                text=action_dict.get("text", ""),
+            )
+        else:
+            continue
+        items.append(QuickReplyItem(action=action))
+    return QuickReply(items=items)
+
+
 def _to_line_messages(msg_dicts: list[dict]) -> list:
     """line_handler が返す dict リストを LINE SDK メッセージオブジェクトに変換する。"""
     messages = []
@@ -51,12 +78,7 @@ def _to_line_messages(msg_dicts: list[dict]) -> list:
         if m["type"] == "text":
             kwargs = {"text": m["text"]}
             if m.get("quickReply"):
-                # クイックリプライの imageUrl=None を除去
-                qr = m["quickReply"]
-                for item in qr.get("items", []):
-                    if "imageUrl" in item and item["imageUrl"] is None:
-                        del item["imageUrl"]
-                kwargs["quick_reply"] = qr
+                kwargs["quick_reply"] = _build_quick_reply(m["quickReply"])
             messages.append(TextMessage(**kwargs))
         elif m["type"] == "flex":
             messages.append(FlexMessage(
