@@ -2,6 +2,7 @@
 LINE メッセージ / ポストバック処理。
 クイックリプライとフレックスメッセージを使った対話的な在庫管理フローを提供する。
 """
+import random
 import re
 import database
 
@@ -26,6 +27,23 @@ STEP_INPUT_NEW_NAME = "input_new_name"
 
 # テキスト入力での在庫増減パターン: "商品名 数量" (例: りんご -5, りんご +10, りんご 3)
 QUANTITY_RE = re.compile(r"^(.+?)\s+([\+\-]?\d+)$")
+
+# りっくん関係の感情メッセージ
+RIKKUN_MESSAGES = [
+    "りっくんのおせわ、がんばるでしゅ！💪👶",
+    "りっくんだいしゅき～！🥰",
+    "りっくんのために、えいえいおー！✨",
+    "りっくんのもの、ちゃんとかんりしゅるでしゅ！📦",
+    "りっくん、まかしぇて～！😊",
+    "りっくんのぶん、わしゅれないでしゅよ！🍼",
+]
+
+
+def _rikkun_msg(category: str) -> str:
+    """りっくん関係カテゴリの場合、感情メッセージを返す"""
+    if category == "りっくん関係":
+        return "\n" + random.choice(RIKKUN_MESSAGES)
+    return ""
 
 
 # ─────────────────────────────────────────────
@@ -70,12 +88,12 @@ def handle_message(text: str, user_id: str) -> list[dict]:
             return [_build_completion_flex(name, delta, new_qty)]
         else:
             return [_build_text(
-                f"「{name}」は商品マスタに登録されていません。\n"
-                "在庫設定メニューから商品を追加してください。"
+                f"「{name}」はおしょうひんにないでしゅ…😢\n"
+                "ざいこせっていから追加してほしいでしゅ！"
             )]
 
     # ── セッション外のフリーテキスト ──
-    return [_build_text("メニューから操作を選択してください。\nテキストで在庫増減する場合：商品名 数量（例: マスク -3）")]
+    return [_build_text("メニューからえらんでほしいでしゅ！🍼\nテキストでざいこふやしたりへらしたりもできるでしゅ：商品名 数量（れい: マスク -3）")]
 
 
 # ─────────────────────────────────────────────
@@ -91,11 +109,11 @@ def handle_postback(data: str, user_id: str) -> list[dict]:
     # ── リッチメニューからのアクション ──
     if action == "start_increase":
         database.set_session(user_id, FLOW_INCREASE, STEP_CATEGORY)
-        return [_build_category_select("➕ 入庫：カテゴリを選んでください")]
+        return [_build_category_select("➕ にゅうこ：カテゴリをえらぶでしゅ！")]
 
     if action == "start_decrease":
         database.set_session(user_id, FLOW_DECREASE, STEP_CATEGORY)
-        return [_build_category_select("➖ 出庫：カテゴリを選んでください")]
+        return [_build_category_select("➖ しゅっこ：カテゴリをえらぶでしゅ！")]
 
     if action == "check_inventory":
         database.clear_session(user_id)
@@ -116,7 +134,7 @@ def handle_postback(data: str, user_id: str) -> list[dict]:
     if action == "start_restock":
         product = params.get("product", "")
         if not product:
-            return [_build_text("商品が指定されていません。")]
+            return [_build_text("おしょうひんがわかんないでしゅ…😢")]
         # カテゴリは補充フローでは不要なのでNoneのままセッションを設定
         database.set_session(user_id, FLOW_INCREASE, STEP_QUANTITY, product=product)
         return [_build_quantity_select(product, FLOW_INCREASE)]
@@ -124,19 +142,19 @@ def handle_postback(data: str, user_id: str) -> list[dict]:
     # ── 在庫設定サブメニュー ──
     if action == "settings_add":
         database.set_session(user_id, FLOW_ADD_PRODUCT, STEP_CATEGORY)
-        return [_build_category_select("➕ 追加先のカテゴリを選んでください")]
+        return [_build_category_select("➕ ついかするカテゴリをえらぶでしゅ！")]
 
     if action == "settings_delete":
         database.set_session(user_id, FLOW_DELETE_PRODUCT, STEP_CATEGORY)
-        return [_build_category_select("🗑️ 削除する商品のカテゴリを選んでください")]
+        return [_build_category_select("🗑️ さくじょするカテゴリをえらぶでしゅ！")]
 
     if action == "settings_rename":
         database.set_session(user_id, FLOW_RENAME_PRODUCT, STEP_CATEGORY)
-        return [_build_category_select("✏️ 名称変更する商品のカテゴリを選んでください")]
+        return [_build_category_select("✏️ おなまえかえるカテゴリをえらぶでしゅ！")]
 
     if action == "settings_threshold":
         database.set_session(user_id, FLOW_THRESHOLD, STEP_CATEGORY)
-        return [_build_category_select("🔔 閾値変更する商品のカテゴリを選んでください")]
+        return [_build_category_select("🔔 しきいちかえるカテゴリをえらぶでしゅ！")]
 
     # ── フロー中のアクション ──
     if action == "select_category":
@@ -159,7 +177,7 @@ def handle_postback(data: str, user_id: str) -> list[dict]:
 
     if action == "cancel" or action == "back_to_menu":
         database.clear_session(user_id)
-        return [_build_text("キャンセルしました。メニューから操作を選んでください。")]
+        return [_build_text("やめたでしゅ！🙌 メニューからまたえらんでほしいでしゅ！")]
 
     if action == "back_to_category":
         return _handle_back_to_category(user_id)
@@ -174,7 +192,7 @@ def handle_postback(data: str, user_id: str) -> list[dict]:
         database.set_session(user_id, "settings", STEP_SETTINGS_MENU)
         return [_build_settings_menu()]
 
-    return [_build_text("不明な操作です。メニューからもう一度お試しください。")]
+    return [_build_text("なにかわかんないでしゅ…😵 メニューからもういっかいやってみてでしゅ！")]
 
 
 # ─────────────────────────────────────────────
@@ -186,49 +204,49 @@ def _build_settings_menu() -> dict:
             "type": "action",
             "action": {
                 "type": "postback",
-                "label": "➕ 在庫追加",
+                "label": "➕ ざいこついか",
                 "data": "action=settings_add",
-                "displayText": "➕ 在庫追加",
+                "displayText": "➕ ざいこついか",
             },
         },
         {
             "type": "action",
             "action": {
                 "type": "postback",
-                "label": "🗑️ 在庫削除",
+                "label": "🗑️ ざいこさくじょ",
                 "data": "action=settings_delete",
-                "displayText": "🗑️ 在庫削除",
+                "displayText": "🗑️ ざいこさくじょ",
             },
         },
         {
             "type": "action",
             "action": {
                 "type": "postback",
-                "label": "✏️ 在庫名称変更",
+                "label": "✏️ おなまえへんこう",
                 "data": "action=settings_rename",
-                "displayText": "✏️ 在庫名称変更",
+                "displayText": "✏️ おなまえへんこう",
             },
         },
         {
             "type": "action",
             "action": {
                 "type": "postback",
-                "label": "🔔 閾値変更",
+                "label": "🔔 しきいちへんこう",
                 "data": "action=settings_threshold",
-                "displayText": "🔔 閾値変更",
+                "displayText": "🔔 しきいちへんこう",
             },
         },
         {
             "type": "action",
             "action": {
                 "type": "postback",
-                "label": "← キャンセル",
+                "label": "← やめる",
                 "data": "action=cancel",
-                "displayText": "キャンセル",
+                "displayText": "やめる",
             },
         },
     ]
-    return _build_text("⚙️ 在庫設定：操作を選んでください", {"items": items})
+    return _build_text("⚙️ ざいこせってい：なにしゅる～？🍼", {"items": items})
 
 
 # ─────────────────────────────────────────────
@@ -238,14 +256,16 @@ def _handle_select_category(params: dict, user_id: str) -> list[dict]:
     category = params.get("category", "")
     session = database.get_session(user_id)
     if not session:
-        return [_build_text("セッションが切れました。メニューからやり直してください。")]
+        return [_build_text("おぼえてないでしゅ…😢 メニューからやりなおしてほしいでしゅ！")]
 
     flow = session["flow"]
 
     # 在庫追加フロー → 商品名入力へ
     if flow == FLOW_ADD_PRODUCT:
         database.set_session(user_id, flow, STEP_INPUT_NAME, category=category)
-        return [_build_text(f"➕ {category} > 追加する商品名を入力してください")]
+        msg = f"➕ {category} > ついかするおしょうひんのなまえをいれてでしゅ！"
+        msg += _rikkun_msg(category)
+        return [_build_text(msg)]
 
     database.set_session(
         user_id, flow, STEP_PRODUCT,
@@ -253,14 +273,15 @@ def _handle_select_category(params: dict, user_id: str) -> list[dict]:
     )
 
     flow_labels = {
-        FLOW_INCREASE: "➕ 入庫",
-        FLOW_DECREASE: "➖ 出庫",
-        FLOW_THRESHOLD: "🔔 閾値変更",
-        FLOW_DELETE_PRODUCT: "🗑️ 削除",
-        FLOW_RENAME_PRODUCT: "✏️ 名称変更",
+        FLOW_INCREASE: "➕ にゅうこ",
+        FLOW_DECREASE: "➖ しゅっこ",
+        FLOW_THRESHOLD: "🔔 しきいちへんこう",
+        FLOW_DELETE_PRODUCT: "🗑️ さくじょ",
+        FLOW_RENAME_PRODUCT: "✏️ おなまえへんこう",
     }
     prefix = flow_labels.get(flow, "")
-    label = f"{prefix} > {category}：商品を選んでください"
+    label = f"{prefix} > {category}：おしょうひんをえらぶでしゅ！"
+    label += _rikkun_msg(category)
 
     return [_build_product_select(category, label)]
 
@@ -272,15 +293,16 @@ def _handle_select_product(params: dict, user_id: str) -> list[dict]:
     product = params.get("product", "")
     session = database.get_session(user_id)
     if not session:
-        return [_build_text("セッションが切れました。メニューからやり直してください。")]
+        return [_build_text("おぼえてないでしゅ…😢 メニューからやりなおしてほしいでしゅ！")]
 
     flow = session["flow"]
+    category = session.get("category", "")
 
     # 削除フロー → 確認画面
     if flow == FLOW_DELETE_PRODUCT:
         database.set_session(
             user_id, flow, STEP_CONFIRM,
-            category=session["category"], product=product,
+            category=category, product=product,
         )
         return [_build_delete_confirm_flex(product)]
 
@@ -288,22 +310,22 @@ def _handle_select_product(params: dict, user_id: str) -> list[dict]:
     if flow == FLOW_RENAME_PRODUCT:
         database.set_session(
             user_id, flow, STEP_INPUT_NEW_NAME,
-            category=session["category"], product=product,
+            category=category, product=product,
         )
-        return [_build_text(f"✏️ 「{product}」の新しい名称を入力してください")]
+        return [_build_text(f"✏️ 「{product}」のあたらしいおなまえをいれてでしゅ！")]
 
     # 閾値設定フローの場合：閾値選択に進む
     if flow == FLOW_THRESHOLD:
         database.set_session(
             user_id, flow, STEP_QUANTITY,
-            category=session["category"], product=product,
+            category=category, product=product,
         )
         return [_build_threshold_select(product)]
 
     # 入庫・出庫フロー：数量選択に進む
     database.set_session(
         user_id, flow, STEP_QUANTITY,
-        category=session["category"], product=product,
+        category=category, product=product,
     )
     return [_build_quantity_select(product, flow)]
 
@@ -317,18 +339,20 @@ def _handle_input_name(text: str, user_id: str, session: dict) -> list[dict]:
     if flow == FLOW_ADD_PRODUCT:
         name = text.strip()
         if not name:
-            return [_build_text("商品名を入力してください。")]
+            return [_build_text("おしょうひんのなまえをいれてほしいでしゅ！🍼")]
 
         category = session["category"]
         success = database.add_product(name, category)
         database.clear_session(user_id)
 
         if success:
-            return [_build_text(f"✅ 「{name}」を {category} カテゴリに追加しました。\n初期数量: {database.DEFAULT_QUANTITY}個 / 閾値: {database.DEFAULT_THRESHOLD}")]
+            msg = f"✅ 「{name}」を {category} にいれたでしゅ！🎉\nさいしょのかず: {database.DEFAULT_QUANTITY}こ / しきいち: {database.DEFAULT_THRESHOLD}"
+            msg += _rikkun_msg(category)
+            return [_build_text(msg)]
         else:
-            return [_build_text(f"⚠️ 「{name}」は既に登録されています。")]
+            return [_build_text(f"⚠️ 「{name}」はもうあるでしゅよ～😅")]
 
-    return [_build_text("セッションが切れました。メニューからやり直してください。")]
+    return [_build_text("おぼえてないでしゅ…😢 メニューからやりなおしてほしいでしゅ！")]
 
 
 # ─────────────────────────────────────────────
@@ -337,16 +361,16 @@ def _handle_input_name(text: str, user_id: str, session: dict) -> list[dict]:
 def _handle_input_new_name(text: str, user_id: str, session: dict) -> list[dict]:
     new_name = text.strip()
     if not new_name:
-        return [_build_text("新しい商品名を入力してください。")]
+        return [_build_text("あたらしいおなまえをいれてほしいでしゅ！🍼")]
 
     old_name = session["product"]
     success = database.rename_product(old_name, new_name)
     database.clear_session(user_id)
 
     if success:
-        return [_build_text(f"✅ 「{old_name}」→「{new_name}」に名称を変更しました。")]
+        return [_build_text(f"✅ 「{old_name}」→「{new_name}」におなまえかえたでしゅ！🎉")]
     else:
-        return [_build_text(f"⚠️ 名称変更に失敗しました。「{new_name}」が既に存在するか、元の商品が見つかりません。")]
+        return [_build_text(f"⚠️ おなまえかえられなかったでしゅ…😢「{new_name}」がもうあるか、もとのおしょうひんがみつかんないでしゅ。")]
 
 
 # ─────────────────────────────────────────────
@@ -356,7 +380,7 @@ def _handle_select_quantity(params: dict, user_id: str) -> list[dict]:
     qty = int(params.get("qty", "0"))
     session = database.get_session(user_id)
     if not session:
-        return [_build_text("セッションが切れました。メニューからやり直してください。")]
+        return [_build_text("おぼえてないでしゅ…😢 メニューからやりなおしてほしいでしゅ！")]
 
     flow = session["flow"]
     product = session["product"]
@@ -365,7 +389,7 @@ def _handle_select_quantity(params: dict, user_id: str) -> list[dict]:
     if flow == FLOW_THRESHOLD:
         database.set_threshold(product, qty)
         database.clear_session(user_id)
-        return [_build_text(f"✅ {product} の通知閾値を {qty} に設定しました。")]
+        return [_build_text(f"✅ {product} のしきいちを {qty} にしたでしゅ！🔔")]
 
     # 入庫・出庫フロー → 確認画面へ
     database.set_session(
@@ -378,23 +402,23 @@ def _handle_select_quantity(params: dict, user_id: str) -> list[dict]:
 def _handle_direct_input_start(user_id: str) -> list[dict]:
     session = database.get_session(user_id)
     if not session:
-        return [_build_text("セッションが切れました。メニューからやり直してください。")]
+        return [_build_text("おぼえてないでしゅ…😢 メニューからやりなおしてほしいでしゅ！")]
 
     database.set_session(
         user_id, session["flow"], STEP_DIRECT_INPUT,
         category=session["category"], product=session["product"],
     )
-    return [_build_text("数量を入力してください（例: 15）")]
+    return [_build_text("おかずをにゅうりょくしてでしゅ！（れい: 15）🔢")]
 
 
 def _handle_direct_input(text: str, user_id: str, session: dict) -> list[dict]:
     try:
         qty = int(text)
     except ValueError:
-        return [_build_text("数値を入力してください（例: 15）")]
+        return [_build_text("おすうじをいれてほしいでしゅ～（れい: 15）🔢")]
 
     if qty <= 0:
-        return [_build_text("1以上の数値を入力してください。")]
+        return [_build_text("1いじょうのおすうじをいれてでしゅ！☝️")]
 
     flow = session["flow"]
 
@@ -402,7 +426,7 @@ def _handle_direct_input(text: str, user_id: str, session: dict) -> list[dict]:
     if flow == FLOW_THRESHOLD:
         database.set_threshold(session["product"], qty)
         database.clear_session(user_id)
-        return [_build_text(f"✅ {session['product']} の通知閾値を {qty} に設定しました。")]
+        return [_build_text(f"✅ {session['product']} のしきいちを {qty} にしたでしゅ！🔔")]
 
     # 入庫・出庫フロー → 確認画面へ
     actual_qty = qty if flow == FLOW_INCREASE else -qty
@@ -419,7 +443,7 @@ def _handle_direct_input(text: str, user_id: str, session: dict) -> list[dict]:
 def _handle_confirm(user_id: str) -> list[dict]:
     session = database.get_session(user_id)
     if not session or session["step"] != STEP_CONFIRM:
-        return [_build_text("セッションが切れました。メニューからやり直してください。")]
+        return [_build_text("おぼえてないでしゅ…😢 メニューからやりなおしてほしいでしゅ！")]
 
     product = session["product"]
     qty = session["quantity"]
@@ -432,16 +456,16 @@ def _handle_confirm(user_id: str) -> list[dict]:
 def _handle_confirm_delete(user_id: str) -> list[dict]:
     session = database.get_session(user_id)
     if not session or session["flow"] != FLOW_DELETE_PRODUCT:
-        return [_build_text("セッションが切れました。メニューからやり直してください。")]
+        return [_build_text("おぼえてないでしゅ…😢 メニューからやりなおしてほしいでしゅ！")]
 
     product = session["product"]
     success = database.delete_product(product)
     database.clear_session(user_id)
 
     if success:
-        return [_build_text(f"✅ 「{product}」を削除しました。")]
+        return [_build_text(f"✅ 「{product}」をけしたでしゅ！ばいばい～👋")]
     else:
-        return [_build_text(f"⚠️ 「{product}」の削除に失敗しました。")]
+        return [_build_text(f"⚠️ 「{product}」がけせなかったでしゅ…😢")]
 
 
 # ─────────────────────────────────────────────
@@ -450,7 +474,7 @@ def _handle_confirm_delete(user_id: str) -> list[dict]:
 def _handle_back_to_category(user_id: str) -> list[dict]:
     session = database.get_session(user_id)
     if not session:
-        return [_build_text("セッションが切れました。メニューからやり直してください。")]
+        return [_build_text("おぼえてないでしゅ…😢 メニューからやりなおしてほしいでしゅ！")]
 
     flow = session["flow"]
 
@@ -458,18 +482,18 @@ def _handle_back_to_category(user_id: str) -> list[dict]:
     if flow in (FLOW_ADD_PRODUCT, FLOW_DELETE_PRODUCT, FLOW_RENAME_PRODUCT, FLOW_THRESHOLD):
         database.set_session(user_id, flow, STEP_CATEGORY)
         flow_labels = {
-            FLOW_ADD_PRODUCT: "➕ 追加先のカテゴリを選んでください",
-            FLOW_DELETE_PRODUCT: "🗑️ 削除する商品のカテゴリを選んでください",
-            FLOW_RENAME_PRODUCT: "✏️ 名称変更する商品のカテゴリを選んでください",
-            FLOW_THRESHOLD: "🔔 閾値変更する商品のカテゴリを選んでください",
+            FLOW_ADD_PRODUCT: "➕ ついかするカテゴリをえらぶでしゅ！",
+            FLOW_DELETE_PRODUCT: "🗑️ さくじょするカテゴリをえらぶでしゅ！",
+            FLOW_RENAME_PRODUCT: "✏️ おなまえかえるカテゴリをえらぶでしゅ！",
+            FLOW_THRESHOLD: "🔔 しきいちかえるカテゴリをえらぶでしゅ！",
         }
-        return [_build_category_select(flow_labels.get(flow, "カテゴリを選んでください"))]
+        return [_build_category_select(flow_labels.get(flow, "カテゴリをえらぶでしゅ！"))]
 
     database.set_session(user_id, flow, STEP_CATEGORY)
     if flow == FLOW_INCREASE:
-        label = "➕ 入庫：カテゴリを選んでください"
+        label = "➕ にゅうこ：カテゴリをえらぶでしゅ！"
     else:
-        label = "➖ 出庫：カテゴリを選んでください"
+        label = "➖ しゅっこ：カテゴリをえらぶでしゅ！"
 
     return [_build_category_select(label)]
 
@@ -477,21 +501,21 @@ def _handle_back_to_category(user_id: str) -> list[dict]:
 def _handle_back_to_product(user_id: str) -> list[dict]:
     session = database.get_session(user_id)
     if not session or not session["category"]:
-        return [_build_text("セッションが切れました。メニューからやり直してください。")]
+        return [_build_text("おぼえてないでしゅ…😢 メニューからやりなおしてほしいでしゅ！")]
 
     flow = session["flow"]
     category = session["category"]
     database.set_session(user_id, flow, STEP_PRODUCT, category=category)
 
     flow_labels = {
-        FLOW_INCREASE: "➕ 入庫",
-        FLOW_DECREASE: "➖ 出庫",
-        FLOW_THRESHOLD: "🔔 閾値変更",
-        FLOW_DELETE_PRODUCT: "🗑️ 削除",
-        FLOW_RENAME_PRODUCT: "✏️ 名称変更",
+        FLOW_INCREASE: "➕ にゅうこ",
+        FLOW_DECREASE: "➖ しゅっこ",
+        FLOW_THRESHOLD: "🔔 しきいちへんこう",
+        FLOW_DELETE_PRODUCT: "🗑️ さくじょ",
+        FLOW_RENAME_PRODUCT: "✏️ おなまえへんこう",
     }
     prefix = flow_labels.get(flow, "")
-    label = f"{prefix} > {category}：商品を選んでください"
+    label = f"{prefix} > {category}：おしょうひんをえらぶでしゅ！"
 
     return [_build_product_select(category, label)]
 
@@ -499,7 +523,7 @@ def _handle_back_to_product(user_id: str) -> list[dict]:
 def _handle_back_to_quantity(user_id: str) -> list[dict]:
     session = database.get_session(user_id)
     if not session or not session["product"]:
-        return [_build_text("セッションが切れました。メニューからやり直してください。")]
+        return [_build_text("おぼえてないでしゅ…😢 メニューからやりなおしてほしいでしゅ！")]
 
     flow = session["flow"]
     database.set_session(
@@ -543,9 +567,9 @@ def _build_category_select(label: str) -> dict:
         "type": "action",
         "action": {
             "type": "postback",
-            "label": "← キャンセル",
+            "label": "← やめる",
             "data": "action=cancel",
-            "displayText": "キャンセル",
+            "displayText": "やめる",
         },
     })
     return _build_text(label, {"items": items})
@@ -569,9 +593,9 @@ def _build_product_select(category: str, label: str) -> dict:
         "type": "action",
         "action": {
             "type": "postback",
-            "label": "← 戻る",
+            "label": "← もどる",
             "data": "action=back_to_category",
-            "displayText": "戻る",
+            "displayText": "もどる",
         },
     })
     return _build_text(label, {"items": items})
@@ -580,10 +604,10 @@ def _build_product_select(category: str, label: str) -> dict:
 def _build_quantity_select(product: str, flow: str) -> dict:
     if flow == FLOW_INCREASE:
         quantities = [1, 2, 3, 5, 10]
-        label = f"➕ {product}：数量を選んでください"
+        label = f"➕ {product}：おかずをえらぶでしゅ！"
     else:
         quantities = [-1, -2, -3, -5, -10]
-        label = f"➖ {product}：数量を選んでください"
+        label = f"➖ {product}：おかずをえらぶでしゅ！"
 
     items = []
     for q in quantities:
@@ -602,9 +626,9 @@ def _build_quantity_select(product: str, flow: str) -> dict:
         "type": "action",
         "action": {
             "type": "postback",
-            "label": "直接入力",
+            "label": "じぶんでいれる",
             "data": "action=direct_input",
-            "displayText": "直接入力",
+            "displayText": "じぶんでいれる",
         },
     })
     # 戻るボタン
@@ -612,9 +636,9 @@ def _build_quantity_select(product: str, flow: str) -> dict:
         "type": "action",
         "action": {
             "type": "postback",
-            "label": "← 戻る",
+            "label": "← もどる",
             "data": "action=back_to_product",
-            "displayText": "戻る",
+            "displayText": "もどる",
         },
     })
     return _build_text(label, {"items": items})
@@ -622,7 +646,7 @@ def _build_quantity_select(product: str, flow: str) -> dict:
 
 def _build_threshold_select(product: str) -> dict:
     thresholds = [1, 2, 3, 5, 10]
-    label = f"🔔 {product}：通知閾値を選んでください"
+    label = f"🔔 {product}：しきいちをえらぶでしゅ！"
 
     items = []
     for t in thresholds:
@@ -632,25 +656,25 @@ def _build_threshold_select(product: str) -> dict:
                 "type": "postback",
                 "label": f"{t}",
                 "data": f"action=select_quantity&qty={t}",
-                "displayText": f"閾値: {t}",
+                "displayText": f"しきいち: {t}",
             },
         })
     items.append({
         "type": "action",
         "action": {
             "type": "postback",
-            "label": "直接入力",
+            "label": "じぶんでいれる",
             "data": "action=direct_input",
-            "displayText": "直接入力",
+            "displayText": "じぶんでいれる",
         },
     })
     items.append({
         "type": "action",
         "action": {
             "type": "postback",
-            "label": "← 戻る",
+            "label": "← もどる",
             "data": "action=back_to_product",
-            "displayText": "戻る",
+            "displayText": "もどる",
         },
     })
     return _build_text(label, {"items": items})
@@ -665,13 +689,13 @@ def _build_confirm_flex(user_id: str, session: dict, qty: int) -> dict:
     current_qty = database.get_quantity(product)
     new_qty = current_qty + qty
 
-    flow_label = "入庫" if flow == FLOW_INCREASE else "出庫"
+    flow_label = "にゅうこ" if flow == FLOW_INCREASE else "しゅっこ"
     flow_color = "#1A6FBF" if flow == FLOW_INCREASE else "#DC3545"
     sign = "+" if qty > 0 else ""
 
     return {
         "type": "flex",
-        "altText": f"{flow_label}確認: {product} {sign}{qty}",
+        "altText": f"{flow_label}かくにん: {product} {sign}{qty}",
         "contents": {
             "type": "bubble",
             "header": {
@@ -680,10 +704,11 @@ def _build_confirm_flex(user_id: str, session: dict, qty: int) -> dict:
                 "backgroundColor": flow_color,
                 "contents": [{
                     "type": "text",
-                    "text": f"📋 {flow_label}確認",
+                    "text": f"📋 これであってましゅか？（{flow_label}）",
                     "color": "#FFFFFF",
                     "weight": "bold",
                     "size": "lg",
+                    "wrap": True,
                 }],
             },
             "body": {
@@ -691,11 +716,11 @@ def _build_confirm_flex(user_id: str, session: dict, qty: int) -> dict:
                 "layout": "vertical",
                 "spacing": "md",
                 "contents": [
-                    _flex_kv("商品名", product),
-                    _flex_kv("数量", f"{sign}{qty}"),
+                    _flex_kv("おしょうひん", product),
+                    _flex_kv("おかず", f"{sign}{qty}"),
                     {"type": "separator", "margin": "md"},
-                    _flex_kv("変更前", f"{current_qty} 個"),
-                    _flex_kv("変更後", f"{new_qty} 個"),
+                    _flex_kv("いまのかず", f"{current_qty} こ"),
+                    _flex_kv("かえたあと", f"{new_qty} こ"),
                 ],
             },
             "footer": {
@@ -709,9 +734,9 @@ def _build_confirm_flex(user_id: str, session: dict, qty: int) -> dict:
                         "color": "#06C755",
                         "action": {
                             "type": "postback",
-                            "label": "✅ 確定",
+                            "label": "✅ これでいいでしゅ",
                             "data": "action=confirm",
-                            "displayText": "確定",
+                            "displayText": "かくてい！",
                         },
                     },
                     {
@@ -719,9 +744,9 @@ def _build_confirm_flex(user_id: str, session: dict, qty: int) -> dict:
                         "style": "secondary",
                         "action": {
                             "type": "postback",
-                            "label": "❌ キャンセル",
+                            "label": "❌ やめる",
                             "data": "action=cancel",
-                            "displayText": "キャンセル",
+                            "displayText": "やめる",
                         },
                     },
                 ],
@@ -736,7 +761,7 @@ def _build_delete_confirm_flex(product: str) -> dict:
 
     return {
         "type": "flex",
-        "altText": f"削除確認: {product}",
+        "altText": f"さくじょかくにん: {product}",
         "contents": {
             "type": "bubble",
             "header": {
@@ -745,7 +770,7 @@ def _build_delete_confirm_flex(product: str) -> dict:
                 "backgroundColor": "#DC3545",
                 "contents": [{
                     "type": "text",
-                    "text": "🗑️ 削除確認",
+                    "text": "🗑️ けしちゃうでしゅか？",
                     "color": "#FFFFFF",
                     "weight": "bold",
                     "size": "lg",
@@ -756,12 +781,12 @@ def _build_delete_confirm_flex(product: str) -> dict:
                 "layout": "vertical",
                 "spacing": "md",
                 "contents": [
-                    _flex_kv("商品名", product),
-                    _flex_kv("現在庫数", f"{qty} 個"),
+                    _flex_kv("おしょうひん", product),
+                    _flex_kv("いまのかず", f"{qty} こ"),
                     {"type": "separator", "margin": "md"},
                     {
                         "type": "text",
-                        "text": "この商品を削除しますか？",
+                        "text": "ほんとにけしちゃうでしゅか？😳",
                         "size": "sm",
                         "color": "#DC3545",
                         "weight": "bold",
@@ -781,9 +806,9 @@ def _build_delete_confirm_flex(product: str) -> dict:
                         "color": "#DC3545",
                         "action": {
                             "type": "postback",
-                            "label": "🗑️ 削除する",
+                            "label": "🗑️ けしちゃう",
                             "data": "action=confirm_delete",
-                            "displayText": "削除する",
+                            "displayText": "けしちゃう",
                         },
                     },
                     {
@@ -791,9 +816,9 @@ def _build_delete_confirm_flex(product: str) -> dict:
                         "style": "secondary",
                         "action": {
                             "type": "postback",
-                            "label": "❌ キャンセル",
+                            "label": "❌ やめる",
                             "data": "action=cancel",
-                            "displayText": "キャンセル",
+                            "displayText": "やめる",
                         },
                     },
                 ],
@@ -804,20 +829,21 @@ def _build_delete_confirm_flex(product: str) -> dict:
 
 def _build_completion_flex(product: str, delta: int, new_qty: int) -> dict:
     sign = "+" if delta > 0 else ""
-    flow_label = "入庫" if delta > 0 else "出庫"
+    flow_label = "にゅうこ" if delta > 0 else "しゅっこ"
 
     body_contents = [
         {
             "type": "text",
-            "text": f"✅ {flow_label}完了",
+            "text": f"✅ {flow_label}できたでしゅ！🎉",
             "weight": "bold",
             "size": "xl",
             "color": "#06C755",
+            "wrap": True,
         },
         {"type": "separator", "margin": "md"},
-        _flex_kv("商品名", product),
-        _flex_kv("変更数量", f"{sign}{delta}"),
-        _flex_kv("現在庫数", f"{new_qty} 個"),
+        _flex_kv("おしょうひん", product),
+        _flex_kv("かわったかず", f"{sign}{delta}"),
+        _flex_kv("いまのかず", f"{new_qty} こ"),
     ]
 
     # 閾値チェック
@@ -826,7 +852,7 @@ def _build_completion_flex(product: str, delta: int, new_qty: int) -> dict:
         body_contents.append({"type": "separator", "margin": "md"})
         body_contents.append({
             "type": "text",
-            "text": f"⚠️ 在庫が閾値（{item['threshold']}）以下です！",
+            "text": f"⚠️ ざいこがしきいち（{item['threshold']}）いかでしゅ！おかいものいかなきゃ！🛒",
             "color": "#DC3545",
             "weight": "bold",
             "size": "sm",
@@ -836,7 +862,7 @@ def _build_completion_flex(product: str, delta: int, new_qty: int) -> dict:
 
     return {
         "type": "flex",
-        "altText": f"{flow_label}完了: {product} → {new_qty}個",
+        "altText": f"{flow_label}かんりょう: {product} → {new_qty}こ",
         "contents": {
             "type": "bubble",
             "body": {
@@ -852,7 +878,7 @@ def _build_completion_flex(product: str, delta: int, new_qty: int) -> dict:
 def _build_inventory_flex() -> dict:
     items = database.get_all_inventory()
     if not items:
-        return _build_text("在庫データがありません。")
+        return _build_text("ざいこがないでしゅ…からっぽでしゅ😢")
 
     # カテゴリ別に分類
     categorized = {}
@@ -872,7 +898,7 @@ def _build_inventory_flex() -> dict:
     body_contents = [
         {
             "type": "text",
-            "text": "📦 在庫一覧",
+            "text": "📦 ざいこいちらん",
             "weight": "bold",
             "size": "xl",
             "color": "#1A6FBF",
@@ -897,7 +923,7 @@ def _build_inventory_flex() -> dict:
             warn = " ⚠️" if item["quantity"] <= item["threshold"] else ""
             body_contents.append({
                 "type": "text",
-                "text": f"  {item['name']}: {item['quantity']}個{warn}",
+                "text": f"  {item['name']}: {item['quantity']}こ{warn}",
                 "size": "sm",
                 "color": "#DC3545" if item["quantity"] <= item["threshold"] else "#333333",
                 "wrap": True,
@@ -906,14 +932,14 @@ def _build_inventory_flex() -> dict:
     # 未分類
     if uncategorized:
         body_contents.append({
-            "type": "text", "text": "📦 その他",
+            "type": "text", "text": "📦 そのた",
             "weight": "bold", "size": "sm", "color": "#555555", "margin": "lg",
         })
         for item in uncategorized:
             warn = " ⚠️" if item["quantity"] <= item["threshold"] else ""
             body_contents.append({
                 "type": "text",
-                "text": f"  {item['name']}: {item['quantity']}個{warn}",
+                "text": f"  {item['name']}: {item['quantity']}こ{warn}",
                 "size": "sm",
                 "color": "#DC3545" if item["quantity"] <= item["threshold"] else "#333333",
                 "wrap": True,
@@ -921,7 +947,7 @@ def _build_inventory_flex() -> dict:
 
     return {
         "type": "flex",
-        "altText": "📦 在庫一覧",
+        "altText": "📦 ざいこいちらん",
         "contents": {
             "type": "bubble",
             "size": "mega",
@@ -938,7 +964,7 @@ def _build_inventory_flex() -> dict:
 def _build_low_stock_flex() -> dict:
     items = database.get_low_stock()
     if not items:
-        return _build_text("✅ 在庫不足の商品はありません。")
+        return _build_text("✅ ざいこはぜんぶだいじょうぶでしゅ！えらい！🌟")
 
     bubbles = []
     for item in items:
@@ -951,7 +977,7 @@ def _build_low_stock_flex() -> dict:
                 "paddingAll": "md",
                 "contents": [{
                     "type": "text",
-                    "text": "⚠️ 在庫不足",
+                    "text": "⚠️ たりないでしゅ！",
                     "color": "#FFFFFF",
                     "weight": "bold",
                     "size": "sm",
@@ -971,8 +997,8 @@ def _build_low_stock_flex() -> dict:
                         "color": "#333333",
                     },
                     {"type": "separator", "margin": "md"},
-                    _flex_kv("現在庫", f"{item['quantity']} 個"),
-                    _flex_kv("閾値",   f"{item['threshold']} 個"),
+                    _flex_kv("いまのかず", f"{item['quantity']} こ"),
+                    _flex_kv("しきいち",   f"{item['threshold']} こ"),
                 ],
             },
             "footer": {
@@ -984,9 +1010,9 @@ def _build_low_stock_flex() -> dict:
                     "color": "#1A6FBF",
                     "action": {
                         "type": "postback",
-                        "label": "✅ 補充完了",
+                        "label": "✅ ほじゅうしたでしゅ",
                         "data": f"action=start_restock&product={item['name']}",
-                        "displayText": f"{item['name']}を補充",
+                        "displayText": f"{item['name']}をほじゅう",
                     },
                 }],
             },
@@ -994,7 +1020,7 @@ def _build_low_stock_flex() -> dict:
 
     return {
         "type": "flex",
-        "altText": f"⚠️ 在庫不足 {len(items)}件",
+        "altText": f"⚠️ ざいこたりない {len(items)}けん",
         "contents": {
             "type": "carousel",
             "contents": bubbles,
@@ -1005,7 +1031,7 @@ def _build_low_stock_flex() -> dict:
 def _build_manual_flex() -> dict:
     return {
         "type": "flex",
-        "altText": "📖 操作マニュアル",
+        "altText": "📖 つかいかたマニュアル",
         "contents": {
             "type": "bubble",
             "size": "mega",
@@ -1015,7 +1041,7 @@ def _build_manual_flex() -> dict:
                 "backgroundColor": "#1A6FBF",
                 "contents": [{
                     "type": "text",
-                    "text": "📖 操作マニュアル",
+                    "text": "📖 りっくんのつかいかた",
                     "color": "#FFFFFF",
                     "weight": "bold",
                     "size": "lg",
@@ -1026,20 +1052,20 @@ def _build_manual_flex() -> dict:
                 "layout": "vertical",
                 "spacing": "lg",
                 "contents": [
-                    _manual_section("➕ 在庫を増やす",
-                                    "メニューから「在庫を増やす」をタップ\n→ カテゴリ → 商品 → 数量 → 確定"),
-                    _manual_section("➖ 在庫を減らす",
-                                    "メニューから「在庫を減らす」をタップ\n→ カテゴリ → 商品 → 数量 → 確定"),
-                    _manual_section("📋 在庫確認",
-                                    "メニューから「在庫確認」をタップ\n→ 全商品の在庫をカテゴリ別に表示"),
-                    _manual_section("⚠️ 在庫不足確認",
-                                    "メニューから「在庫不足確認」をタップ\n→ 閾値以下の商品を一覧表示"),
-                    _manual_section("⚙️ 在庫設定",
-                                    "商品の追加・削除・名称変更・閾値変更"),
-                    _manual_section("📝 テキスト入力",
-                                    "「商品名 数量」で直接増減\n例: マスク -3、ティッシュ +5"),
-                    _manual_section("⏰ 毎朝7時通知",
-                                    "閾値以下の在庫がある場合\n自動でアラートが届きます"),
+                    _manual_section("➕ ざいこをふやしゅ",
+                                    "メニューから「ざいこをふやしゅ」をタップ\n→ カテゴリ → おしょうひん → おかず → かくてい！"),
+                    _manual_section("➖ ざいこをへらしゅ",
+                                    "メニューから「ざいこをへらしゅ」をタップ\n→ カテゴリ → おしょうひん → おかず → かくてい！"),
+                    _manual_section("📋 ざいこかくにん",
+                                    "メニューから「ざいこかくにん」をタップ\n→ ぜんぶのざいこがみれるでしゅ！"),
+                    _manual_section("⚠️ たりないものかくにん",
+                                    "メニューから「たりないもの」をタップ\n→ しきいちいかのおしょうひんがわかるでしゅ！"),
+                    _manual_section("⚙️ ざいこせってい",
+                                    "おしょうひんのついか・さくじょ・おなまえへんこう・しきいちへんこう"),
+                    _manual_section("📝 テキストでもできるでしゅ",
+                                    "「しょうひんめい すうりょう」でちょくせつふやしたりへらしたり\nれい: マスク -3、ティッシュ +5"),
+                    _manual_section("⏰ まいあさ7じにおしらせ",
+                                    "たりないものがあったら\nじどうでおしえてあげるでしゅ！🌅"),
                 ],
             },
         },
@@ -1074,8 +1100,8 @@ def _manual_section(title: str, body: str) -> dict:
 
 def format_low_stock_alert(items: list[dict]) -> str:
     """スケジューラからの呼び出し用（テキスト形式）"""
-    lines = ["⚠️ 在庫不足アラート", "─────────────────"]
+    lines = ["⚠️ たりないものがあるでしゅ！🍼", "─────────────────"]
     for item in items:
-        lines.append(f"{item['name']}: {item['quantity']}個（閾値: {item['threshold']}）")
-    lines.append("─────────────────\n補充をご確認ください。")
+        lines.append(f"{item['name']}: {item['quantity']}こ（しきいち: {item['threshold']}）")
+    lines.append("─────────────────\nおかいものいってほしいでしゅ～🛒")
     return "\n".join(lines)

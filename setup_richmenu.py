@@ -38,7 +38,7 @@ RICH_MENU_BODY = {
     "size": {"width": 2500, "height": 843},
     "selected": True,
     "name": "inventory_menu",
-    "chatBarText": "📦 メニュー",
+    "chatBarText": "🍼 りっくんメニュー",
     "areas": [
         # 上段左: 在庫を増やす
         {
@@ -46,7 +46,7 @@ RICH_MENU_BODY = {
             "action": {
                 "type": "postback",
                 "data": "action=start_increase",
-                "displayText": "➕ 在庫を増やす",
+                "displayText": "➕ ざいこをふやしゅ",
             },
         },
         # 上段中: 在庫を減らす
@@ -55,7 +55,7 @@ RICH_MENU_BODY = {
             "action": {
                 "type": "postback",
                 "data": "action=start_decrease",
-                "displayText": "➖ 在庫を減らす",
+                "displayText": "➖ ざいこをへらしゅ",
             },
         },
         # 上段右: 在庫確認
@@ -64,7 +64,7 @@ RICH_MENU_BODY = {
             "action": {
                 "type": "postback",
                 "data": "action=check_inventory",
-                "displayText": "📋 在庫確認",
+                "displayText": "📋 ざいこかくにん",
             },
         },
         # 下段左: 在庫不足確認
@@ -73,7 +73,7 @@ RICH_MENU_BODY = {
             "action": {
                 "type": "postback",
                 "data": "action=check_low_stock",
-                "displayText": "⚠️ 在庫不足確認",
+                "displayText": "⚠️ たりないものかくにん",
             },
         },
         # 下段中: 在庫設定
@@ -82,7 +82,7 @@ RICH_MENU_BODY = {
             "action": {
                 "type": "postback",
                 "data": "action=start_settings",
-                "displayText": "⚙️ 在庫設定",
+                "displayText": "⚙️ ざいこせってい",
             },
         },
         # 下段右: マニュアル
@@ -91,7 +91,7 @@ RICH_MENU_BODY = {
             "action": {
                 "type": "postback",
                 "data": "action=show_manual",
-                "displayText": "📖 マニュアル",
+                "displayText": "📖 つかいかた",
             },
         },
     ],
