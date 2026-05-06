@@ -276,7 +276,7 @@ def get_low_stock() -> list[dict]:
     with get_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                "SELECT name, quantity, threshold FROM inventory WHERE quantity <= threshold ORDER BY quantity"
+                "SELECT name, quantity, threshold FROM inventory WHERE quantity < threshold ORDER BY quantity"
             )
             return [dict(r) for r in cur.fetchall()]
 

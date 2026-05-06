@@ -186,7 +186,7 @@ def handle_postback(data: str, user_id: str) -> list[dict]:
 
     if action == "settings_threshold":
         database.set_session(user_id, FLOW_THRESHOLD, STEP_CATEGORY)
-        return [_build_category_select(_t("🔔 閾値変更する商品のカテゴリを選んでください", "🔔 しきいちかえるカテゴリをえらぶでしゅ！", mode))]
+        return [_build_category_select(_t("🔔 必要数を変更する商品のカテゴリを選んでください", "🔔 ひつようすうかえるカテゴリをえらぶでしゅ！", mode))]
 
     # ── フロー中のアクション ──
     if action == "select_category":
@@ -277,9 +277,9 @@ def _build_settings_menu() -> dict:
             "type": "action",
             "action": {
                 "type": "postback",
-                "label": _t("🔔 閾値変更", "🔔 しきいちへんこう", mode),
+                "label": _t("🔔 必要数変更", "🔔 ひつようすうへんこう", mode),
                 "data": "action=settings_threshold",
-                "displayText": _t("🔔 閾値変更", "🔔 しきいちへんこう", mode),
+                "displayText": _t("🔔 必要数変更", "🔔 ひつようすうへんこう", mode),
             },
         },
         {
@@ -334,14 +334,14 @@ def _handle_select_category(params: dict, user_id: str) -> list[dict]:
     flow_labels_normal = {
         FLOW_INCREASE: "➕ 入庫",
         FLOW_DECREASE: "➖ 出庫",
-        FLOW_THRESHOLD: "🔔 閾値変更",
+        FLOW_THRESHOLD: "🔔 必要数変更",
         FLOW_DELETE_PRODUCT: "🗑️ 削除",
         FLOW_RENAME_PRODUCT: "✏️ 名称変更",
     }
     flow_labels_rikkun = {
         FLOW_INCREASE: "➕ にゅうこ",
         FLOW_DECREASE: "➖ しゅっこ",
-        FLOW_THRESHOLD: "🔔 しきいちへんこう",
+        FLOW_THRESHOLD: "🔔 ひつようすうへんこう",
         FLOW_DELETE_PRODUCT: "🗑️ さくじょ",
         FLOW_RENAME_PRODUCT: "✏️ おなまえへんこう",
     }
@@ -407,8 +407,8 @@ def _handle_input_name(text: str, user_id: str, session: dict) -> list[dict]:
 
         if success:
             msg = _t(
-                f"✅ 「{name}」を {category} カテゴリに追加しました。\n初期数量: {database.DEFAULT_QUANTITY}個 / 閾値: {database.DEFAULT_THRESHOLD}",
-                f"✅ 「{name}」を {category} にいれたでしゅ！🎉\nさいしょのかず: {database.DEFAULT_QUANTITY}こ / しきいち: {database.DEFAULT_THRESHOLD}",
+                f"✅ 「{name}」を {category} カテゴリに追加しました。\n初期数量: {database.DEFAULT_QUANTITY}個 / 必要数: {database.DEFAULT_THRESHOLD}",
+                f"✅ 「{name}」を {category} にいれたでしゅ！🎉\nさいしょのかず: {database.DEFAULT_QUANTITY}こ / ひつようすう: {database.DEFAULT_THRESHOLD}",
                 mode,
             )
             msg += _rikkun_extra(category, mode)
@@ -467,8 +467,8 @@ def _handle_select_quantity(params: dict, user_id: str) -> list[dict]:
         database.set_threshold(product, qty)
         database.clear_session(user_id)
         return [_build_text(_t(
-            f"✅ {product} の通知閾値を {qty} に設定しました。",
-            f"✅ {product} のしきいちを {qty} にしたでしゅ！🔔",
+            f"✅ {product} の必要数を {qty} に設定しました。",
+            f"✅ {product} のひつようすうを {qty} にしたでしゅ！🔔",
             mode,
         ))]
 
@@ -502,8 +502,8 @@ def _handle_direct_input(text: str, user_id: str, session: dict) -> list[dict]:
         database.set_threshold(session["product"], qty)
         database.clear_session(user_id)
         return [_build_text(_t(
-            f"✅ {session['product']} の通知閾値を {qty} に設定しました。",
-            f"✅ {session['product']} のしきいちを {qty} にしたでしゅ！🔔",
+            f"✅ {session['product']} の必要数を {qty} に設定しました。",
+            f"✅ {session['product']} のひつようすうを {qty} にしたでしゅ！🔔",
             mode,
         ))]
 
@@ -562,7 +562,7 @@ def _handle_back_to_category(user_id: str) -> list[dict]:
             FLOW_ADD_PRODUCT: _t("➕ 追加先のカテゴリを選んでください", "➕ ついかするカテゴリをえらぶでしゅ！", mode),
             FLOW_DELETE_PRODUCT: _t("🗑️ 削除する商品のカテゴリを選んでください", "🗑️ さくじょするカテゴリをえらぶでしゅ！", mode),
             FLOW_RENAME_PRODUCT: _t("✏️ 名称変更する商品のカテゴリを選んでください", "✏️ おなまえかえるカテゴリをえらぶでしゅ！", mode),
-            FLOW_THRESHOLD: _t("🔔 閾値変更する商品のカテゴリを選んでください", "🔔 しきいちかえるカテゴリをえらぶでしゅ！", mode),
+            FLOW_THRESHOLD: _t("🔔 必要数を変更する商品のカテゴリを選んでください", "🔔 ひつようすうかえるカテゴリをえらぶでしゅ！", mode),
         }
         return [_build_category_select(flow_labels.get(flow, _t("カテゴリを選んでください", "カテゴリをえらぶでしゅ！", mode)))]
 
@@ -588,14 +588,14 @@ def _handle_back_to_product(user_id: str) -> list[dict]:
     flow_labels_normal = {
         FLOW_INCREASE: "➕ 入庫",
         FLOW_DECREASE: "➖ 出庫",
-        FLOW_THRESHOLD: "🔔 閾値変更",
+        FLOW_THRESHOLD: "🔔 必要数変更",
         FLOW_DELETE_PRODUCT: "🗑️ 削除",
         FLOW_RENAME_PRODUCT: "✏️ 名称変更",
     }
     flow_labels_rikkun = {
         FLOW_INCREASE: "➕ にゅうこ",
         FLOW_DECREASE: "➖ しゅっこ",
-        FLOW_THRESHOLD: "🔔 しきいちへんこう",
+        FLOW_THRESHOLD: "🔔 ひつようすうへんこう",
         FLOW_DELETE_PRODUCT: "🗑️ さくじょ",
         FLOW_RENAME_PRODUCT: "✏️ おなまえへんこう",
     }
@@ -733,7 +733,7 @@ def _build_quantity_select(product: str, flow: str) -> dict:
 def _build_threshold_select(product: str) -> dict:
     mode = _mode()
     thresholds = [1, 2, 3, 5, 10]
-    label = _t(f"🔔 {product}：通知閾値を選んでください", f"🔔 {product}：しきいちをえらぶでしゅ！", mode)
+    label = _t(f"🔔 {product}：必要数を選んでください", f"🔔 {product}：ひつようすうをえらぶでしゅ！", mode)
 
     items = []
     for t in thresholds:
@@ -743,7 +743,7 @@ def _build_threshold_select(product: str) -> dict:
                 "type": "postback",
                 "label": f"{t}",
                 "data": f"action=select_quantity&qty={t}",
-                "displayText": _t(f"閾値: {t}", f"しきいち: {t}", mode),
+                "displayText": _t(f"必要数: {t}", f"ひつようすう: {t}", mode),
             },
         })
     items.append({
@@ -939,13 +939,13 @@ def _build_completion_flex(product: str, delta: int, new_qty: int) -> dict:
     ]
 
     item = database.get_item(product)
-    if item and new_qty <= item["threshold"]:
+    if item and new_qty < item["threshold"]:
         body_contents.append({"type": "separator", "margin": "md"})
         body_contents.append({
             "type": "text",
             "text": _t(
-                f"⚠️ 在庫が閾値（{item['threshold']}）以下です！",
-                f"⚠️ ざいこがしきいち（{item['threshold']}）いかでしゅ！おかいものいかなきゃ！🛒",
+                f"⚠️ 在庫が必要数（{item['threshold']}）未満です！",
+                f"⚠️ ざいこがひつようすう（{item['threshold']}）みまんでしゅ！おかいものいかなきゃ！🛒",
                 mode,
             ),
             "color": "#DC3545",
@@ -1015,13 +1015,13 @@ def _build_inventory_flex() -> dict:
             "margin": "lg",
         })
         for item in cat_items:
-            warn = " ⚠️" if item["quantity"] <= item["threshold"] else ""
+            warn = " ⚠️" if item["quantity"] < item["threshold"] else ""
             qty_str = _t(f"{item['quantity']}個", f"{item['quantity']}こ", mode)
             body_contents.append({
                 "type": "text",
                 "text": f"  {item['name']}: {qty_str}{warn}",
                 "size": "sm",
-                "color": "#DC3545" if item["quantity"] <= item["threshold"] else "#333333",
+                "color": "#DC3545" if item["quantity"] < item["threshold"] else "#333333",
                 "wrap": True,
             })
 
@@ -1031,13 +1031,13 @@ def _build_inventory_flex() -> dict:
             "weight": "bold", "size": "sm", "color": "#555555", "margin": "lg",
         })
         for item in uncategorized:
-            warn = " ⚠️" if item["quantity"] <= item["threshold"] else ""
+            warn = " ⚠️" if item["quantity"] < item["threshold"] else ""
             qty_str = _t(f"{item['quantity']}個", f"{item['quantity']}こ", mode)
             body_contents.append({
                 "type": "text",
                 "text": f"  {item['name']}: {qty_str}{warn}",
                 "size": "sm",
-                "color": "#DC3545" if item["quantity"] <= item["threshold"] else "#333333",
+                "color": "#DC3545" if item["quantity"] < item["threshold"] else "#333333",
                 "wrap": True,
             })
 
@@ -1095,7 +1095,7 @@ def _build_low_stock_flex() -> dict:
                     },
                     {"type": "separator", "margin": "md"},
                     _flex_kv(_t("現在庫", "いまのかず", mode), _t(f"{item['quantity']} 個", f"{item['quantity']} こ", mode)),
-                    _flex_kv(_t("閾値", "しきいち", mode), _t(f"{item['threshold']} 個", f"{item['threshold']} こ", mode)),
+                    _flex_kv(_t("必要数", "ひつようすう", mode), _t(f"{item['threshold']} 個", f"{item['threshold']} こ", mode)),
                 ],
             },
             "footer": {
@@ -1167,12 +1167,12 @@ def _build_manual_flex() -> dict:
                     ),
                     _manual_section(
                         _t("⚠️ 在庫不足確認", "⚠️ たりないものかくにん", mode),
-                        _t("メニューから「在庫不足確認」をタップ\n→ 閾値以下の商品を一覧表示",
+                        _t("メニューから「在庫不足確認」をタップ\n→ 必要数未満の商品を一覧表示",
                            "メニューから「たりないもの」をタップ\n→ しきいちいかのおしょうひんがわかるでしゅ！", mode),
                     ),
                     _manual_section(
                         _t("⚙️ 在庫設定", "⚙️ ざいこせってい", mode),
-                        _t("商品の追加・削除・名称変更・閾値変更",
+                        _t("商品の追加・削除・名称変更・必要数変更",
                            "おしょうひんのついか・さくじょ・おなまえへんこう・しきいちへんこう", mode),
                     ),
                     _manual_section(
@@ -1182,7 +1182,7 @@ def _build_manual_flex() -> dict:
                     ),
                     _manual_section(
                         _t("⏰ 毎朝7時通知", "⏰ まいあさ7じにおしらせ", mode),
-                        _t("閾値以下の在庫がある場合\n自動でアラートが届きます",
+                        _t("必要数未満の在庫がある場合\n自動でアラートが届きます",
                            "たりないものがあったら\nじどうでおしえてあげるでしゅ！🌅", mode),
                     ),
                     _manual_section(
@@ -1233,6 +1233,6 @@ def format_low_stock_alert(items: list[dict]) -> str:
     else:
         lines = ["⚠️ 在庫不足アラート", "─────────────────"]
         for item in items:
-            lines.append(f"{item['name']}: {item['quantity']}個（閾値: {item['threshold']}）")
+            lines.append(f"{item['name']}: {item['quantity']}個（必要数: {item['threshold']}）")
         lines.append("─────────────────\n補充をご確認ください。")
     return "\n".join(lines)
